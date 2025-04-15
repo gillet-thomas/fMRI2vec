@@ -5,7 +5,7 @@ import torch
 import argparse
 import warnings
 import numpy as np
-from src.data.DatasetADNI import ADNIDataset
+from src.data.DatasetADNI_4D import ADNIDataset4D   
 from src.fmriEncoder import fmriEncoder
 from src.Trainer import Trainer
 
@@ -48,8 +48,8 @@ def set_seeds(config):
     np.random.seed(config["seed"])
 
 def get_datasets(config):
-    dataset_train = ADNIDataset(config, mode="train")
-    dataset_val = ADNIDataset(config, mode="val")
+    dataset_train = ADNIDataset4D(config, mode="train")
+    dataset_val = ADNIDataset4D(config, mode="val")
     return dataset_train, dataset_val
 
 def main():

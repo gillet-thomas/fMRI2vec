@@ -23,6 +23,20 @@ class fmriEncoder(nn.Module):
         self.activations = {}
         self.register_hooks() 
 
+    def forward(self, fmri):
+        # fmri is tensor of shape (batch_size, 90, 90, 90, 140) = (B, H, W, D, T)
+        B, H, W, D, T = fmri.shape
+        volumes = fmri.reshape(B * T, H, W, D)
+        volumes_encoding = self.volume_encoder(volumes) # [B, 1024]
+        volumes_encoding = volumes_encoding.reshape(B, T, -1) # [B, T, 1024]
+
+        fmri_encodings = self.temporal_transformer(volumes_encoding)  # Temporal transformer [B, T, 1024] -> [B, T, 1024]
+        fmri_encodings = fmri_encodings.mean(dim=1) # [B, 1024]
+        # fmri_encoding = fmri_encodings[:, 0, :] # [B, 1024]   # CLS token approach 
+
+        fmri_predictions = self.projection(fmri_encodings)        # Linear projection [B, 1024] -> [B, 3] 3 for classification
+        return fmri_predictions
+
     def register_hooks(self):
         # Get the last attention layer
         last_attention = self.volume_encoder.vit3d.transformer.layers[-1][0].norm
@@ -37,12 +51,6 @@ class fmriEncoder(nn.Module):
         self.forward_handle = last_attention.register_forward_hook(forward_hook)
         self.backward_handle = last_attention.register_backward_hook(backward_hook)
 
-    def forward(self, x):
-        # x is a tensor of shape (batch_size, 90, 90, 90)
-        timepoints_encodings = self.volume_encoder(x)   # Encode each timepoint with 3D-ViT
-        timepoints_encodings = self.projection(timepoints_encodings) # Linear projection [batch, 1024] -> [batch, 2]
-        return timepoints_encodings
-    
     def get_attention_map(self, x):
 
         # Forward pass to get target class
@@ -153,7 +161,7 @@ class TemporalTransformer(nn.Module):
 
     def forward(self, x):
         # x is a tensor of shape (batch_size, n_volume, 1024)
-        logits = self.transformer(x)  # output is [batch, n_volume, 1024]
+        logits = self.transformer(x)  # output is [batch_size, n_volume, 1024]
         return logits
 
 class ViT3DEncoder(nn.Module):
@@ -166,8 +174,8 @@ class ViT3DEncoder(nn.Module):
             frames=90,
             image_size=90,
             channels=1,
-            frame_patch_size=9,
-            image_patch_size=9,
+            frame_patch_size=18,
+            image_patch_size=18,
             num_classes=1024,
             dim=1024,
             depth=6,
@@ -178,11 +186,11 @@ class ViT3DEncoder(nn.Module):
         ).to(self.device)
 
     def forward(self, x):
-        # x is a tensor of shape (batch_size, 90, 90, 90)
-        # ViT3D expects (batch_size, channels, frames, height)
+        # x is a tensor of shape (batch_size, 90, 90, 90) = (B, H, W, D) timepoint
+        # ViT3D expects (batch_size, channels, frames, height, width)
         timepoint = x.to(self.device)
-        timepoint = timepoint.permute(0, 3, 1, 2)
-        timepoint = timepoint.unsqueeze(1)
+        timepoint = timepoint.permute(0, 3, 1, 2)  # (B, H, W, D) -> (B, D, H, W)
+        timepoint = timepoint.unsqueeze(1)        # (B, 1, D, H, W) for channels
 
         encoding = self.vit3d(timepoint) # output is [batch, 1024]
         return encoding
