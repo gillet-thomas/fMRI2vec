@@ -21,17 +21,17 @@ class Trainer():
         self.dataloader = torch.utils.data.DataLoader(self.data, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, pin_memory=True, prefetch_factor=2)
         self.val_dataloader = torch.utils.data.DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers, pin_memory=True, prefetch_factor=2)
 
-        total_groups = 633
+        total_groups = 181 + 116
         AD_count = 116
         CN_count = 181
-        MCI_count = 336
+        # weight=torch.tensor([total_groups/CN_count, total_groups/MCI_count, total_groups/AD_count]
 
         self.scaler = torch.amp.GradScaler()       # for Automatic Mixed Precision
-        self.criterion = nn.CrossEntropyLoss(weight=torch.tensor([total_groups/CN_count, total_groups/MCI_count, total_groups/AD_count]).to(self.device))
+        self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config['learning_rate'], weight_decay=self.config['weight_decay'])
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', verbose=True, patience=1, factor=0.5)
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', verbose=True, patience=1, factor=0.5)
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=10, eta_min=0)
-        self.log_interval = 2 # len(self.dataloader) // 10  # Log every 10% of batches
+        self.log_interval = len(self.dataloader) // 10  # Log every 10% of batches
 
         total_params = sum(p.numel() for p in self.model.parameters())
         trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
@@ -49,15 +49,7 @@ class Trainer():
         for epoch in tqdm(range(self.epochs)):
             self.train(epoch)
             self.validate(epoch)
-
-            old_lr = self.optimizer.param_groups[0]['lr']
-            self.scheduler.step(self.val_loss)
-            new_lr = self.optimizer.param_groups[0]['lr']
-
-            if old_lr != new_lr:
-                print(f"Learning rate changed: {old_lr} -> {new_lr}")
-            else:
-                print(f"Learning rate unchanged: {new_lr}")
+            # self.scheduler.step(self.val_loss)
 
             torch.save(self.model.state_dict(), f'{path}/model-e{epoch}.pth')
             print(f"MODEL SAVED to .{path}/model-e{epoch}.pth")
@@ -66,24 +58,33 @@ class Trainer():
         self.model.train()
         running_loss, correct, total = 0.0, 0, 0
         start_time = time.time()
+        
+        accumulation_step = 8 # 8 times batch_size 4 = 32
 
         for i, (subject, fMRI, group, gender, age, age_group) in enumerate(self.dataloader):
-            fMRI, group = fMRI.to(self.device), group.to(self.device)  ## (batch_size, 64, 64, 48, 140) and (batch_size)
+            fMRI, age_group = fMRI.to(self.device), age_group.to(self.device)  ## (batch_size, 64, 64, 48, 140) and (batch_size)
 
             with torch.autocast(device_type="cuda", dtype=torch.float16):
                 outputs = self.model(fMRI)  # output is [batch_size, 3]
-                loss = self.criterion(outputs, group)
+                loss = self.criterion(outputs, age_group)
                 # torch.cuda.empty_cache()  # Clear memory     
            
-            self.optimizer.zero_grad(set_to_none=True) # Modestly improve performance
+            # self.optimizer.zero_grad(set_to_none=True) # Modestly improve performance
             self.scaler.scale(loss).backward()
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
+            # self.scaler.step(self.optimizer)
+            # self.scaler.update()
 
             running_loss += loss.item()
-            correct += (outputs.argmax(dim=1) == group).sum().item()
-            total += group.size(0)  # returns batch size
+            correct += (outputs.argmax(dim=1) == age_group).sum().item()
+            total += age_group.size(0)  # returns batch size
 
+            # Gradients accumulation
+            if (i + 1) % accumulation_step == 0:
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer.zero_grad(set_to_none=True)
+
+            # Logging
             if i != 0 and i % self.log_interval == 0:
                 avg_loss = round(running_loss / self.log_interval, 5)
                 accuracy = round(correct / total, 5)
@@ -102,12 +103,12 @@ class Trainer():
 
         with torch.no_grad():
             for i, (subject, fMRI, group, gender, age, age_group) in enumerate(self.val_dataloader):
-                fMRI, group = fMRI.to(self.device), group.to(self.device)  ## (batch_size, 64, 64, 48) and (batch_size)
+                fMRI, age_group = fMRI.to(self.device), age_group.to(self.device)  ## (batch_size, 64, 64, 48) and (batch_size)
                 outputs = self.model(fMRI)
-                loss = self.criterion(outputs, group)
+                loss = self.criterion(outputs, age_group)
                 val_loss += loss.item()
-                correct += (outputs.argmax(dim=1) == group).sum().item()
-                total += group.size(0)  # returns the batch size
+                correct += (outputs.argmax(dim=1) == age_group).sum().item()
+                total += age_group.size(0)  # returns the batch size
                 
             avg_val_loss = round(val_loss / len(self.val_dataloader), 5)
             self.val_loss = avg_val_loss # for LR scheduler

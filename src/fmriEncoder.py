@@ -14,9 +14,14 @@ class fmriEncoder(nn.Module):
         self.device = config["device"]
         
         self.volume_encoder = ViT3DEncoder(config)
+        self.volume_encoder.load_state_dict(torch.load(config["best_model_path"]))
+        self.volume_encoder.eval()
+        
         self.temporal_transformer = TemporalTransformer(config)
         self.projection = ProjectionHead(config)
         self.to(self.device)  # Move entire model to device at once
+
+        # self.cls_token = nn.Parameter(torch.zeros(1, 1, 1024))
 
         # Gradients and activations tracking
         self.gradients = {}
@@ -24,17 +29,20 @@ class fmriEncoder(nn.Module):
         self.register_hooks() 
 
     def forward(self, fmri):
-        # fmri is tensor of shape (batch_size, 90, 90, 90, 140) = (B, H, W, D, T)
         B, H, W, D, T = fmri.shape
         volumes = fmri.reshape(B * T, H, W, D)
-        volumes_encoding = self.volume_encoder(volumes) # [B, 1024]
+        with torch.no_grad():   
+            volumes_encoding = self.volume_encoder(volumes) # [B, 1024]
         volumes_encoding = volumes_encoding.reshape(B, T, -1) # [B, T, 1024]
 
-        fmri_encodings = self.temporal_transformer(volumes_encoding)  # Temporal transformer [B, T, 1024] -> [B, T, 1024]
-        fmri_encodings = fmri_encodings.mean(dim=1) # [B, 1024]
-        # fmri_encoding = fmri_encodings[:, 0, :] # [B, 1024]   # CLS token approach 
+        # cls_tokens = self.cls_token.expand(B, 1, 1024) 
+        # volumes_encoding = torch.cat([cls_tokens, volumes_encoding], dim=1) # [B, T+1, 1024]
 
-        fmri_predictions = self.projection(fmri_encodings)        # Linear projection [B, 1024] -> [B, 3] 3 for classification
+        fmri_encodings = self.temporal_transformer(volumes_encoding)  # Temporal transformer [B, T+1, 1024] -> [B, T+1, 1024]
+        fmri_encoding = fmri_encodings.mean(dim=1) # [B, 1024]
+        # fmri_encoding = fmri_encodings[:, 0, :] # [B, 1024]   # CLS tokens for classification 
+
+        fmri_predictions = self.projection(fmri_encoding)        # Linear projection [B, 1024] -> [B, 3] 3 for classification
         return fmri_predictions
 
     def register_hooks(self):
@@ -174,8 +182,8 @@ class ViT3DEncoder(nn.Module):
             frames=90,
             image_size=90,
             channels=1,
-            frame_patch_size=18,
-            image_patch_size=18,
+            frame_patch_size=15,
+            image_patch_size=15,
             num_classes=1024,
             dim=1024,
             depth=6,
@@ -190,7 +198,7 @@ class ViT3DEncoder(nn.Module):
         # ViT3D expects (batch_size, channels, frames, height, width)
         timepoint = x.to(self.device)
         timepoint = timepoint.permute(0, 3, 1, 2)  # (B, H, W, D) -> (B, D, H, W)
-        timepoint = timepoint.unsqueeze(1)        # (B, 1, D, H, W) for channels
+        timepoint = timepoint.unsqueeze(1)         # (B, 1, D, H, W) for channels
 
         encoding = self.vit3d(timepoint) # output is [batch, 1024]
         return encoding
@@ -262,11 +270,10 @@ class ProjectionHead(nn.Module):
             nn.LayerNorm(512),
             nn.ReLU(),
             nn.Dropout(self.dropout),
-            nn.Linear(512, 3)  # 2 classes classification
+            nn.Linear(512, 2)  # 2 classes classification
         ).to(self.device) 
 
     def forward(self, x):
         # x is a tensor of shape (batch_size, 1024)
         logits = self.projection3(x)  # output is [batch, 2]
         return logits
-

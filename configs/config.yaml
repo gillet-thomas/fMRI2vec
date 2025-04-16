@@ -2,8 +2,8 @@
 output_dir: './results'
 pain_csv: './src/data/paths_dataset_pain.csv'
 adni_csv: './src/data/paths_dataset_adni.csv'
-adni_train_path: './src/data/adni_train.pkl'
-adni_val_path: './src/data/adni_val.pkl'
+adni_train_path: './src/data/adni_train_4D.pkl'
+adni_val_path: './src/data/adni_val_4D.pkl'
 
 # best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-03-20_14-01-28/model-e22.pth' # RESNET age group
 # best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-03-20_10-50-08/model-e28.pth' # RESNET gender
@@ -13,14 +13,14 @@ adni_val_path: './src/data/adni_val.pkl'
 # best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-01_14-40-34/model-e3.pth'  # ViT gender (new)
 
 # best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-08_10-51-41/model-e9.pth'  # ViT Gender ADNI 85%
-# best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-09_09-39-44/model-e8.pth'  # ViT Age group ADNI 97%
-best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-09_14-53-58/model-e9.pth'  # ViT Age group ADNI 97%
+best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-09_09-39-44/model-e8.pth'  # ViT Age group ADNI 97%
+# best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-09_14-53-58/model-e9.pth'  # ViT Age group ADNI 97%
 
 
 seed: 42
 epochs: 10
-batch_size: 128            # 128 is max for A100 GPU
+batch_size: 8         # 128 is max for A100 GPU
 num_workers: 16           # Number of workers for data loading
 learning_rate: 0.0001
-weight_decay: 0.01        # Default on AdamW is 0.01
+weight_decay: 0.01       # Default on AdamW is 0.01
 dropout: 0.1

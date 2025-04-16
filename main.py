@@ -75,6 +75,7 @@ def main():
         trainer = Trainer(config, model, dataset_train, dataset_val)
         trainer.run()
 
+    
             # print(f"FOLD {fold}/5 completed.")
             # print("=" * 50)
 
