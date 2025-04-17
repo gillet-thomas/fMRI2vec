@@ -13,7 +13,7 @@ adni_val_path: './src/data/adni_val_4D.pkl'
 # best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-01_14-40-34/model-e3.pth'  # ViT gender (new)
 
 # best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-08_10-51-41/model-e9.pth'  # ViT Gender ADNI 85%
-best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-09_09-39-44/model-e8.pth'  # ViT Age group ADNI 97%
+best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-17_10-57-44/model-e5.pth'  # ViT Age group ADNI 97%
 # best_model_path: '/mnt/data/iai/Projects/ABCDE/fmris/CLIP_fmris/fMRI2Vec/results/2025-04-09_14-53-58/model-e9.pth'  # ViT Age group ADNI 97%
 
 

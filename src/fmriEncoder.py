@@ -14,8 +14,19 @@ class fmriEncoder(nn.Module):
         self.device = config["device"]
         
         self.volume_encoder = ViT3DEncoder(config)
-        # self.volume_encoder.load_state_dict(torch.load(config["best_model_path"]))
-        # self.volume_encoder.eval()
+
+        # Extract only ViT3D weights by filtering keys
+        full_state_dict = torch.load(config["best_model_path"])
+        vit3d_state_dict = {
+            k.replace("volume_encoder.vit3d.", "vit3d."): v 
+            for k, v in full_state_dict.items() 
+            if k.startswith("volume_encoder.vit3d.")
+        }
+        self.volume_encoder.load_state_dict(vit3d_state_dict, strict=True)
+
+        for param in self.volume_encoder.parameters():
+            param.requires_grad = False
+        self.volume_encoder.eval()
         
         self.temporal_transformer = TemporalTransformer(config)
         self.projection = ProjectionHead(config)
@@ -31,8 +42,7 @@ class fmriEncoder(nn.Module):
     def forward(self, fmri):
         B, H, W, D, T = fmri.shape
         volumes = fmri.reshape(B * T, H, W, D)
-        with torch.no_grad():   
-            volumes_encoding = self.volume_encoder(volumes) # [B, 1024]
+        volumes_encoding = self.volume_encoder(volumes) # [B, 1024]
         volumes_encoding = volumes_encoding.reshape(B, T, -1) # [B, T, 1024]
 
         # cls_tokens = self.cls_token.expand(B, 1, 1024) 

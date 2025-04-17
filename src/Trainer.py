@@ -147,7 +147,7 @@ class Trainer():
                 predictions = self.model(fMRI)  # Get model predictions (batch_size, 4)
 
                 prediction = predictions.argmax(dim=1).item()
-                actual = group.item()
+                actual = age_group.item()
                 # print(f"Predictions of {i}: {self.data.selected_groups[prediction]}/{self.data.selected_groups[actual]}")
 
                 if subject in unique_train_subjects:
