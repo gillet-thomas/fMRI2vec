@@ -14,8 +14,8 @@ class fmriEncoder(nn.Module):
         self.device = config["device"]
         
         self.volume_encoder = ViT3DEncoder(config)
-        self.volume_encoder.load_state_dict(torch.load(config["best_model_path"]))
-        self.volume_encoder.eval()
+        # self.volume_encoder.load_state_dict(torch.load(config["best_model_path"]))
+        # self.volume_encoder.eval()
         
         self.temporal_transformer = TemporalTransformer(config)
         self.projection = ProjectionHead(config)

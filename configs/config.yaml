@@ -21,6 +21,6 @@ seed: 42
 epochs: 10
 batch_size: 8         # 128 is max for A100 GPU
 num_workers: 16           # Number of workers for data loading
-learning_rate: 0.0001
+learning_rate: 0.00001
 weight_decay: 0.01       # Default on AdamW is 0.01
 dropout: 0.1
